@@ -64,7 +64,7 @@ button {
     color: #fff;
     padding: 0.5rem 1.8rem;
     box-shadow: 0 0.3rem rgba(121, 121, 121, 0.65);
-    transition: filter ease-in-out 200ms;
+    transition: filter color ease-in-out 200ms;
 }
 
 button:hover {
@@ -74,6 +74,15 @@ button:hover {
 button:active {
     transform: translate(0, 0.3rem);
     box-shadow: 0 0.1rem rgba(255, 255, 255, 0.65);
+}
+
+.twitter-button {
+    font-size: 1.5rem;
+    transition: color ease-in-out 200ms;
+}
+
+.twitter-button:hover {
+    color: #1DA1F2;
 }
 
 /* Tablet or smaller */
