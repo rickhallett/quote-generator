@@ -12,20 +12,15 @@ const createLog = () => {
     }
 }
 
-const proxyUrl = 'http://cors-anywhere.herokuapp.com/';
-const apiUrl = 'https://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en';
-const proxys = ['xxx', 'xxx', 'xxx', proxyUrl];
-const urls = ['xxx', 'xxx', 'xxx', apiUrl];
-
 const timeout = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const sleep = async (ms) => await Promise.all([timeout(ms / 2)], [timeout(ms / 2)]);
 
 const getQuote = async () => {
-    // const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-    // const apiUrl = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en';
+    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+    const apiUrl = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en';
 
     try {
-        const res = await fetch(proxys.shift() + urls.shift());
+        const res = await fetch(proxyUrl + apiUrl);
         return await res.json();
     } catch (err) {
         return log(err);
