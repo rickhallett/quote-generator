@@ -2,8 +2,8 @@ const MAX_ATTEMPTS = 10;
 
 class QuoteCache {
     constructor() {
-        this.history = this.loadHistory();
-        this.pointer = this.history.length - 1;
+        this.loadHistory();
+        this.pointToEnd();
     }
 
     createLog(nq) {
@@ -17,17 +17,31 @@ class QuoteCache {
     }
 
     prev() {
+        if (this.pointer === 0) {
+            return this;
+        }
         --this.pointer;
         return this;
     }
 
     next() {
+        if (this.pointer >= this.history.length - 1) {
+            return this;
+        }
         ++this.pointer;
         return this;
     }
 
     get() {
         return this.history[this.pointer];
+    }
+
+    pointToEnd() {
+        this.pointer = this.history.length - 1;
+    }
+
+    isAtEnd() {
+        return this.pointer >= this.history.length - 1;
     }
 
     saveHistory() {
@@ -140,7 +154,7 @@ const reactiveDOM = (shadowDOM) => {
     }
 }
 
-const initShadowDOM = () => {
+const initQuoteDOM = () => {
     return {
         quoteText: document.getElementById('quote'),
         authorText: document.getElementById('author'),
@@ -153,13 +167,57 @@ const initStoreDOM = () => {
         favContainer: document.getElementById('fav-container'),
         favTitleBox: document.getElementById('fav-title-text'),
         favsList: document.getElementById('favs-list'),
-        saveBtn: document.getElementById('save-quote')
+        saveBtn: document.getElementById('save-quote'),
+        prevBtn: document.getElementById('prev'),
+        stopBtn: document.getElementById('stop'),
+        playBtn: document.getElementById('play'),
+        nextBtn: document.getElementById('next'),
+        twitterTab: document.getElementById('twitter-tablet'),
+        twitterMob: document.getElementById('twitter-mobile')
     };
 }
 
 const log = createLog();
-const quoteMachine = reactiveDOM(initShadowDOM());
+const quoteMachine = reactiveDOM(initQuoteDOM());
 const cache = new QuoteCache();
+const dom = initStoreDOM();
+const quoteDom = initQuoteDOM();
+
+let playInterval = null;
 
 cache.loadHistory();
+
+console.log(cache);
+
+const prevHandler = () => {
+    const prevQuote = cache.prev().get();
+    quoteDom.quoteText.innerHTML = prevQuote.quoteText;
+    quoteDom.authorText.innerHTML = prevQuote.quoteAuthor;
+};
+
+const nextHandler = () => {
+    if (cache.isAtEnd()) {
+        clearInterval(playInterval);
+        playInterval = null;
+    }
+
+    const nextQuote = cache.next().get();
+    console.log(nextQuote)
+    quoteDom.quoteText.innerHTML = nextQuote.quoteText;
+    quoteDom.authorText.innerHTML = nextQuote.quoteAuthor;
+}
+
+dom.prevBtn.addEventListener('click', prevHandler);
+dom.stopBtn.addEventListener('click', clearInterval(playInterval));
+dom.playBtn.addEventListener('click', () => playInterval = setInterval(nextHandler, 4500));
+dom.nextBtn.addEventListener('click', nextHandler);
+
+const twitterHandler = () => {
+
+}
+
+dom.twitterTab.addEventListener('click', twitterHandler);
+dom.twitterMob.addEventListener('click', twitterHandler);
+
+
 
