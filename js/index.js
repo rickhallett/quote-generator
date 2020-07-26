@@ -22,6 +22,18 @@ class QuoteCache {
         this.pointToEnd();
     }
 
+    createFavourite() {
+        const fav = this.get();
+
+        this.savedQuotes.push({
+            date: fav.date,
+            quoteText: fav.quoteText,
+            quoteAuthor: fav.quoteAuthor
+        });
+
+        this.persistSavedQuotes();
+    }
+
     prev() {
         if (this.pointer === 0) {
             return this;
@@ -68,6 +80,10 @@ class QuoteCache {
 
     loadHistory() {
         this.history = JSON.parse(localStorage.getItem('quote-gen-history')) || [];
+    }
+
+    persistSavedQuotes() {
+        localStorage.setItem('quote-gen-saved', JSON.stringify(this.savedQuotes));
     }
 
     loadSavedQuotes() {
@@ -213,21 +229,6 @@ const quoteDom = initQuoteDOM();
 
 let playInterval = null;
 
-
-
-const boot = async () => {
-    cache.loadHistory();
-    const booted = await quoteMachine.updateUI(cache.getLast());
-
-    if(!booted.success) {
-        await quoteMachine.updateUI(PRE_FAB_QUOTE);
-    }
-};
-
-boot();
-
-console.log(cache);
-
 const trackerHandler = () => {
     dom.nominator.innerHTML = cache.getPointer() + 1;
     dom.denominator.innerHTML = cache.getLength();
@@ -257,6 +258,26 @@ const nextHandler = () => {
 
 const saveHander = () => {
 
+    cache.createFavourite();
+    savedQuotePrintHandler();
+};
+
+const savedQuotePrintHandler = () => {
+    const createItemHtml = (q) => {
+        let str = `<li class="favs-list-item">`;
+        str += `${q.quoteText}`;
+        str += `<span class="favs-list-author">${q.quoteAuthor}</span>`;
+        str += `<i class="fas fa-times"></i>`;
+        str += `</li>`;
+
+        return str;
+    }
+
+    // cache.savedQuotes.forEach(quote => {
+    //     dom.favsList.innerHTML += createItemHtml(quote)
+    // });
+
+    dom.favsList.innerHTML = cache.savedQuotes.map(quote => createItemHtml(quote)).join('');
 };
 
 const twitterHandler = () => {
@@ -272,4 +293,20 @@ dom.twitterTab.addEventListener('click', twitterHandler);
 dom.twitterMob.addEventListener('click', twitterHandler);
 
 
+/**
+ * INIT
+ */
+const boot = async () => {
+    cache.loadHistory();
+    savedQuotePrintHandler();
+    const booted = await quoteMachine.updateUI(cache.getLast());
+
+    if(!booted.success) {
+        await quoteMachine.updateUI(PRE_FAB_QUOTE);
+    }
+};
+
+boot();
+
+console.log(cache);
 
