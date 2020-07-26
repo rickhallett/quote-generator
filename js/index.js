@@ -1,8 +1,13 @@
 const MAX_ATTEMPTS = 10;
+const PRE_FAB_QUOTE = {
+    quoteText: 'Look with favour upon a bold beginning.',
+    quoteAuthor: 'Virgil'
+};
 
 class QuoteCache {
     constructor() {
         this.loadHistory();
+        this.loadSavedQuotes();
         this.pointToEnd();
     }
 
@@ -14,6 +19,7 @@ class QuoteCache {
         });
 
         this.saveHistory();
+        this.pointToEnd();
     }
 
     prev() {
@@ -36,6 +42,18 @@ class QuoteCache {
         return this.history[this.pointer];
     }
 
+    getPointer() {
+        return this.pointer;
+    }
+
+    getLength() {
+        return this.history.length;
+    }
+
+    getLast() {
+        return this.history[this.history.length - 1] || null;
+    }
+
     pointToEnd() {
         this.pointer = this.history.length - 1;
     }
@@ -52,8 +70,16 @@ class QuoteCache {
         this.history = JSON.parse(localStorage.getItem('quote-gen-history')) || [];
     }
 
+    loadSavedQuotes() {
+        this.savedQuotes = JSON.parse(localStorage.getItem('quote-gen-saved')) || [];
+    }
+
     clearHistory() {
         localStorage.removeItem('quote-gen-history');
+    }
+
+    clearSavedQuotes() {
+        localStorage.removeItem('quote-gen-saved');
     }
 
     printHistory() {
@@ -105,9 +131,7 @@ const quoteLimiter = async (_, n = 1) => {
     return { data, n };
 }
 
-const reactiveDOM = (shadowDOM) => {
-    let data = null;
-    let n = 0;
+const apiHook = (shadowDOM) => {
 
     const updateUI = async (nq) => {
         try {
@@ -138,6 +162,7 @@ const reactiveDOM = (shadowDOM) => {
                 }
 
                 cache.createLog(data);
+                trackerHandler();
                 return log(`UI updated successfully after ${n} attempt${n == 1 ? '' : 's'}`);
             }        
         }
@@ -150,6 +175,7 @@ const reactiveDOM = (shadowDOM) => {
     shadowDOM.getQuoteBtn.addEventListener('click', tryGetQuote.bind(null));
 
     return {
+        updateUI,
         exec: tryGetQuote.bind(null)
     }
 }
@@ -173,49 +199,75 @@ const initStoreDOM = () => {
         playBtn: document.getElementById('play'),
         nextBtn: document.getElementById('next'),
         twitterTab: document.getElementById('twitter-tablet'),
-        twitterMob: document.getElementById('twitter-mobile')
+        twitterMob: document.getElementById('twitter-mobile'),
+        nominator: document.getElementById('nominator'),
+        denominator: document.getElementById('denominator'),
     };
 }
 
 const log = createLog();
-const quoteMachine = reactiveDOM(initQuoteDOM());
+const quoteMachine = apiHook(initQuoteDOM());
 const cache = new QuoteCache();
 const dom = initStoreDOM();
 const quoteDom = initQuoteDOM();
 
 let playInterval = null;
 
-cache.loadHistory();
+
+
+const boot = async () => {
+    cache.loadHistory();
+    const booted = await quoteMachine.updateUI(cache.getLast());
+
+    if(!booted.success) {
+        await quoteMachine.updateUI(PRE_FAB_QUOTE);
+    }
+};
+
+boot();
 
 console.log(cache);
+
+const trackerHandler = () => {
+    dom.nominator.innerHTML = cache.getPointer() + 1;
+    dom.denominator.innerHTML = cache.getLength();
+};
+
+trackerHandler();
 
 const prevHandler = () => {
     const prevQuote = cache.prev().get();
     quoteDom.quoteText.innerHTML = prevQuote.quoteText;
     quoteDom.authorText.innerHTML = prevQuote.quoteAuthor;
+    trackerHandler();
 };
 
 const nextHandler = () => {
     if (cache.isAtEnd()) {
         clearInterval(playInterval);
         playInterval = null;
+        return;
     }
 
     const nextQuote = cache.next().get();
-    console.log(nextQuote)
     quoteDom.quoteText.innerHTML = nextQuote.quoteText;
     quoteDom.authorText.innerHTML = nextQuote.quoteAuthor;
-}
+    trackerHandler();
+};
+
+const saveHander = () => {
+
+};
+
+const twitterHandler = () => {
+
+};
 
 dom.prevBtn.addEventListener('click', prevHandler);
 dom.stopBtn.addEventListener('click', clearInterval(playInterval));
 dom.playBtn.addEventListener('click', () => playInterval = setInterval(nextHandler, 4500));
 dom.nextBtn.addEventListener('click', nextHandler);
-
-const twitterHandler = () => {
-
-}
-
+dom.saveBtn.addEventListener('click', saveHander);
 dom.twitterTab.addEventListener('click', twitterHandler);
 dom.twitterMob.addEventListener('click', twitterHandler);
 
