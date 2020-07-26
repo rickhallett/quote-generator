@@ -1,22 +1,213 @@
 /**
+ * Constants
+ */
+
+const MAX_ATTEMPTS = 10;
+const PRE_FAB_QUOTE = {
+    quoteText: 'Look with favour upon a bold beginning.',
+    quoteAuthor: 'Virgil'
+};
+
+const ACTION = 'action';
+const MUTATION = 'mutation';
+const RESTING = 'resting';
+
+
+/**
  * State
  */
+
+const state = {
+    history: [],
+    savedQuotes: []
+};
 
 /**
  * Actions
  */
 
+const actions = {
+
+    example: function(context, payload) {
+        context.commit('mutationKeyName', payload);
+    },
+
+    getForismaticQuote: function() {
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        const apiUrl = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en';
+
+        try {
+            const res = await fetch(proxyUrl + apiUrl);
+            return await res.json();
+        } catch (err) {
+            return log(err);
+        }
+    },
+
+
+    quoteLimiter: async function (_, n = 1) {
+        log(`Trying API: ${n}`);
+        let data = await getQuote();
+    
+        if (!data) {
+            const delay = 50;
+    
+            if (n < MAX_ATTEMPTS) {
+                log(`Retrying API in ${delay}ms`);
+                sleep(delay);
+                return await quoteLimiter(null, ++n);
+            }
+        }
+    
+        return { data, n };
+    },
+
+    updateUI: async function(nq) {
+        try {
+            shadowDOM.authorText.innerHTML = nq.quoteAuthor;
+            shadowDOM.quoteText.innerHTML = nq.quoteText;
+        } catch (err) {
+            log(err);
+            return { success: false, error: err };
+        }
+
+        return { success: true, error: null };
+    },
+
+    tryGetQuote: async function(_, missingDataTryCount = 1) {
+        let { data, n } = await quoteLimiter(null, missingDataTryCount);
+
+        if (data) {
+            if (n <= MAX_ATTEMPTS) {
+                const { success, error } = await updateUI(data);
+
+                if (!success) {
+                    log(`API response had missing data (${error}). Trying again.`);
+                    if (n < MAX_ATTEMPTS) {
+                        return await tryGetQuote(null, ++missingDataTryCount)
+                    }
+                    
+                    throw Error(`Unable to update UI successfully from API: ${error}`);
+                }
+
+                cache.createLog(data);
+                trackerHandler();
+                return log(`UI updated successfully after ${n} attempt${n == 1 ? '' : 's'}`);
+            }        
+        }
+
+        if (!data && n >= MAX_ATTEMPTS) {
+            throw new Error(`Unable to retrieve quote from API after ${n} attempt${n == 1 ? '' : 's'}`);
+        }
+    }
+
+
+}
+
 /**
  * Mutations
  */
+
+const mutations = {
+
+    example: function(state, payload) {
+        state.history.push('yolo');
+
+        return state;
+    }
+
+}
 
 /**
  * Store
  */
 
+class Store {
+    constructor(params) {
+        const self = this;
+
+        self.status = null;
+        self.actions = params.actions;
+        self.mutations = params.mutations;
+        self.events = new EventManager();
+
+        self.state = new Proxy((params.state || {}), {
+            set: function(state, key, value) {
+                state[key] = value;
+
+                console.log(`stateChange = { ${key}: ${value} }`);
+                
+                self.events.publish('stateChange');
+
+                if (self.status !== MUTATION) {
+                    console.warn(`You should use a mutation to set ${key}`);
+                }
+
+                self.status = RESTING;
+
+                return true;
+            }
+        });
+    }
+
+    dispatch(actionKey, payload) {
+        if (typeof(this.actions[actionKey]) !== 'function') {
+            console.warn(`${actionKey} is not a registered action`);
+            return false;
+        }
+
+        console.groupCollapsed(`ACTION: ${actionKey}`);
+
+        this.status = ACTION;
+
+        this.actions[actionKey](this, payload);
+
+        console.groupEnd();
+
+        return true;
+    }
+
+    commit(mutationKey, payload) {
+        if(typeof(this.mutations[mutationKey]) !== 'function') {
+            console.warn(`${this.mutations[mutationKey]} is not a registered mutation`);
+            return false;
+        }
+
+        this.status = MUTATION;
+
+        const newState = this.mutations[mutationKey](this.state, payload);
+
+        this.state = Object.assign(this.state, newState);
+
+        return true;
+    }
+}
+
 /**
  * Pub/Sub
  */
+
+class EventManager {
+    constructor() {
+        this.events = [];
+    }
+
+    subscribe(event, callback) {
+        if(!this.events[event].hasOwnProperty(event)) {
+            this.events[event] = [];
+        }
+
+        return this.events[event].push(callback);
+    }
+
+    publish(event, data = {}) {
+        if(!this.events[event].hasOwnProperty(event)) {
+            throw new Error(`EventManager does not have ${event} subscribed`);
+        }
+
+        return this.events[event].map(cb => cb(data));
+    }
+}
 
 /**
  * Base Component
@@ -30,19 +221,56 @@
  * Utils
  */
 
-/**
- * Init
- */
+const utils = {
 
+    createLog: function() {
+        let n = 0;
+        return (msg) => {
+            if (msg instanceof Error) {
+                console.error(`${new Date().toISOString()}-LOG-#${++n} => ${msg}`);
+                return false;
+            }
+            console.log(`${new Date().toISOString()}-LOG-#${++n} => ${msg}`);
+            return true;
+        }
+    },
 
+    timeout: function (ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    },
 
-const MAX_ATTEMPTS = 10;
-const PRE_FAB_QUOTE = {
-    quoteText: 'Look with favour upon a bold beginning.',
-    quoteAuthor: 'Virgil'
+    sleep: async function(ms) {
+        return await Promise.all([this.timeout(ms / 2)], [this.timeout(ms / 2)]);
+    }, 
+
+    domRef: function() {
+        const $ = document.getElementById;
+        return {
+            quoteText: $('quote'),
+            authorText: $('author'),
+            getQuoteBtn: $('new-quote'),
+            favContainer: $('fav-container'),
+            favTitleBox: $('fav-title-text'),
+            favsList: $('favs-list'),
+            saveBtn: $('save-quote'),
+            prevBtn: $('prev'),
+            stopBtn: $('stop'),
+            playBtn: $('play'),
+            nextBtn: $('next'),
+            twitterTab: $('twitter-tablet'),
+            twitterMob: $('twitter-mobile'),
+            nominator: $('nominator'),
+            denominator: $('denominator')
+        }
+    }
+
 };
 
-class QuoteCache {
+/**
+ * Cache
+ */
+
+class QuoteCacheManager {
     constructor() {
         this.loadHistory();
         this.loadSavedQuotes();
@@ -141,129 +369,20 @@ class QuoteCache {
     }
 }
 
-const createLog = () => {
-    let n = 0;
-    return (msg) => {
-        if (msg instanceof Error) {
-            console.error(`${new Date().toISOString()}-LOG-#${++n} => ${msg}`);
-            return false;
-        }
-        console.log(`${new Date().toISOString()}-LOG-#${++n} => ${msg}`);
-        return true;
-    }
-}
+/**
+ * Init
+ */
 
-const timeout = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const sleep = async (ms) => await Promise.all([timeout(ms / 2)], [timeout(ms / 2)]);
+const dom = utils.domRef();
+const log = utils.createLog();
 
-const getQuote = async () => {
-    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-    const apiUrl = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en';
-
-    try {
-        const res = await fetch(proxyUrl + apiUrl);
-        return await res.json();
-    } catch (err) {
-        return log(err);
-    }
-}
-
-const quoteLimiter = async (_, n = 1) => {
-    log(`Trying API: ${n}`);
-    let data = await getQuote();
-
-    if (!data) {
-        const delay = 50;
-
-        if (n < MAX_ATTEMPTS) {
-            log(`Retrying API in ${delay}ms`);
-            sleep(delay);
-            return await quoteLimiter(null, ++n);
-        }
-    }
-
-    return { data, n };
-}
-
-const apiHook = (shadowDOM) => {
-
-    const updateUI = async (nq) => {
-        try {
-            shadowDOM.authorText.innerHTML = nq.quoteAuthor;
-            shadowDOM.quoteText.innerHTML = nq.quoteText;
-        } catch (err) {
-            log(err);
-            return { success: false, error: err };
-        }
-
-        return { success: true, error: null };
-    }
-
-    const tryGetQuote = async (_, missingDataTryCount = 1) => {
-        let { data, n } = await quoteLimiter(null, missingDataTryCount);
-
-        if (data) {
-            if (n <= MAX_ATTEMPTS) {
-                const { success, error } = await updateUI(data);
-
-                if (!success) {
-                    log(`API response had missing data (${error}). Trying again.`);
-                    if (n < MAX_ATTEMPTS) {
-                        return await tryGetQuote(null, ++missingDataTryCount)
-                    }
-                    
-                    throw Error(`Unable to update UI successfully from API: ${error}`);
-                }
-
-                cache.createLog(data);
-                trackerHandler();
-                return log(`UI updated successfully after ${n} attempt${n == 1 ? '' : 's'}`);
-            }        
-        }
-
-        if (!data && n >= MAX_ATTEMPTS) {
-            throw new Error(`Unable to retrieve quote from API after ${n} attempt${n == 1 ? '' : 's'}`);
-        }
-    }
-
-    shadowDOM.getQuoteBtn.addEventListener('click', tryGetQuote.bind(null));
-
-    return {
-        updateUI,
-        exec: tryGetQuote.bind(null)
-    }
-}
-
-const initQuoteDOM = () => {
-    return {
-        quoteText: document.getElementById('quote'),
-        authorText: document.getElementById('author'),
-        getQuoteBtn: document.getElementById('new-quote')
-    }
-}
-
-const initStoreDOM = () => {
-    return {
-        favContainer: document.getElementById('fav-container'),
-        favTitleBox: document.getElementById('fav-title-text'),
-        favsList: document.getElementById('favs-list'),
-        saveBtn: document.getElementById('save-quote'),
-        prevBtn: document.getElementById('prev'),
-        stopBtn: document.getElementById('stop'),
-        playBtn: document.getElementById('play'),
-        nextBtn: document.getElementById('next'),
-        twitterTab: document.getElementById('twitter-tablet'),
-        twitterMob: document.getElementById('twitter-mobile'),
-        nominator: document.getElementById('nominator'),
-        denominator: document.getElementById('denominator'),
-    };
-}
-
-const log = createLog();
-const quoteMachine = apiHook(initQuoteDOM());
-const cache = new QuoteCache();
-const dom = initStoreDOM();
-const quoteDom = initQuoteDOM();
+dom.prevBtn.addEventListener('click', prevHandler);
+dom.stopBtn.addEventListener('click', clearInterval(playInterval));
+dom.playBtn.addEventListener('click', () => playInterval = setInterval(nextHandler, 4500));
+dom.nextBtn.addEventListener('click', nextHandler);
+dom.saveBtn.addEventListener('click', saveHander);
+dom.twitterTab.addEventListener('click', twitterHandler);
+dom.twitterMob.addEventListener('click', twitterHandler);
 
 let playInterval = null;
 
@@ -276,8 +395,8 @@ trackerHandler();
 
 const prevHandler = () => {
     const prevQuote = cache.prev().get();
-    quoteDom.quoteText.innerHTML = prevQuote.quoteText;
-    quoteDom.authorText.innerHTML = prevQuote.quoteAuthor;
+    dom.quoteText.innerHTML = prevQuote.quoteText;
+    dom.authorText.innerHTML = prevQuote.quoteAuthor;
     trackerHandler();
 };
 
@@ -289,8 +408,8 @@ const nextHandler = () => {
     }
 
     const nextQuote = cache.next().get();
-    quoteDom.quoteText.innerHTML = nextQuote.quoteText;
-    quoteDom.authorText.innerHTML = nextQuote.quoteAuthor;
+    dom.quoteText.innerHTML = nextQuote.quoteText;
+    dom.authorText.innerHTML = nextQuote.quoteAuthor;
     trackerHandler();
 };
 
@@ -311,40 +430,5 @@ const savedQuotePrintHandler = () => {
         return str;
     }
 
-    // cache.savedQuotes.forEach(quote => {
-    //     dom.favsList.innerHTML += createItemHtml(quote)
-    // });
-
     dom.favsList.innerHTML = cache.savedQuotes.map(quote => createItemHtml(quote)).join('');
 };
-
-const twitterHandler = () => {
-
-};
-
-dom.prevBtn.addEventListener('click', prevHandler);
-dom.stopBtn.addEventListener('click', clearInterval(playInterval));
-dom.playBtn.addEventListener('click', () => playInterval = setInterval(nextHandler, 4500));
-dom.nextBtn.addEventListener('click', nextHandler);
-dom.saveBtn.addEventListener('click', saveHander);
-dom.twitterTab.addEventListener('click', twitterHandler);
-dom.twitterMob.addEventListener('click', twitterHandler);
-
-
-/**
- * INIT
- */
-const boot = async () => {
-    cache.loadHistory();
-    savedQuotePrintHandler();
-    const booted = await quoteMachine.updateUI(cache.getLast());
-
-    if(!booted.success) {
-        await quoteMachine.updateUI(PRE_FAB_QUOTE);
-    }
-};
-
-boot();
-
-console.log(cache);
-
