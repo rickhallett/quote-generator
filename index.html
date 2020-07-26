@@ -20,13 +20,30 @@
         </div>
         <!-- Buttons -->
         <div class="button-container">
-            <button class="twitter-button" id="twitter" title="Tweet this!">
+            <button class="twitter-button" id="twitter-tablet" title="Tweet this!">
                 <i class="fab fa-twitter"></i>
             </button>
+            <div class="history-nav">
+                <button id="prev">
+                    <i class="fas fa-angle-left"></i>
+                </button>
+                <button id="stop">
+                    <i class="fas fa-stop"></i>
+                </button>
+                <button id="play">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button id="next">
+                    <i class="fas fa-angle-right"></i>
+                </button>
+            </div>
             <div>
                 <button id="new-quote">New Quote</button>
                 <button class="save-button" id="save-quote">
                     <i class="fas fa-star"></i>
+                </button>
+                <button class="twitter-button-mobile" id="twitter-mobile" title="Tweet this!">
+                    <i class="fab fa-twitter"></i>
                 </button>
             </div>
             
@@ -41,7 +58,7 @@
             <span class="fav-title">Saved Quotes</span>
         </div>
         <div class="favs">
-            <ul class="favs-list">
+            <ul class="favs-list" id="favs-list">
                 <li class="favs-list-item">What you are is what you have been. What you'll be is what you do now.
                     <span class="favs-list-author">Buddha</span>
                     <i class="fas fa-times"></i>

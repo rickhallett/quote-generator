@@ -1,5 +1,52 @@
 const MAX_ATTEMPTS = 10;
 
+class QuoteCache {
+    constructor() {
+        this.history = this.loadHistory();
+        this.pointer = this.history.length - 1;
+    }
+
+    createLog(nq) {
+        this.history.push({
+            date: Date.now(),
+            quoteText: nq.quoteText,
+            quoteAuthor: nq.quoteAuthor
+        });
+
+        this.saveHistory();
+    }
+
+    prev() {
+        --this.pointer;
+        return this;
+    }
+
+    next() {
+        ++this.pointer;
+        return this;
+    }
+
+    get() {
+        return this.history[this.pointer];
+    }
+
+    saveHistory() {
+        localStorage.setItem('quote-gen-history', JSON.stringify(this.history));
+    }
+
+    loadHistory() {
+        this.history = JSON.parse(localStorage.getItem('quote-gen-history')) || [];
+    }
+
+    clearHistory() {
+        localStorage.removeItem('quote-gen-history');
+    }
+
+    printHistory() {
+        this.history.forEach(log => console.log(log))
+    }
+}
+
 const createLog = () => {
     let n = 0;
     return (msg) => {
@@ -27,7 +74,7 @@ const getQuote = async () => {
     }
 }
 
-const proxyGetQuote = async (_, n = 1) => {
+const quoteLimiter = async (_, n = 1) => {
     log(`Trying API: ${n}`);
     let data = await getQuote();
 
@@ -37,7 +84,7 @@ const proxyGetQuote = async (_, n = 1) => {
         if (n < MAX_ATTEMPTS) {
             log(`Retrying API in ${delay}ms`);
             sleep(delay);
-            return await proxyGetQuote(null, ++n);
+            return await quoteLimiter(null, ++n);
         }
     }
 
@@ -61,7 +108,7 @@ const reactiveDOM = (shadowDOM) => {
     }
 
     const tryGetQuote = async (_, missingDataTryCount = 1) => {
-        let { data, n } = await proxyGetQuote(null, missingDataTryCount);
+        let { data, n } = await quoteLimiter(null, missingDataTryCount);
 
         if (data) {
             if (n <= MAX_ATTEMPTS) {
@@ -76,6 +123,7 @@ const reactiveDOM = (shadowDOM) => {
                     throw Error(`Unable to update UI successfully from API: ${error}`);
                 }
 
+                cache.createLog(data);
                 return log(`UI updated successfully after ${n} attempt${n == 1 ? '' : 's'}`);
             }        
         }
@@ -100,6 +148,18 @@ const initShadowDOM = () => {
     }
 }
 
+const initStoreDOM = () => {
+    return {
+        favContainer: document.getElementById('fav-container'),
+        favTitleBox: document.getElementById('fav-title-text'),
+        favsList: document.getElementById('favs-list'),
+        saveBtn: document.getElementById('save-quote')
+    };
+}
+
 const log = createLog();
-const manualMode = reactiveDOM(initShadowDOM());
+const quoteMachine = reactiveDOM(initShadowDOM());
+const cache = new QuoteCache();
+
+cache.loadHistory();
 

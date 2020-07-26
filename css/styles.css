@@ -49,7 +49,7 @@ body {
 }
 
 .button-container {
-    margin-top: 15px;
+    margin-top: 2rem;
     display: flex;
     justify-content: space-between;
 }
@@ -86,12 +86,61 @@ button:active {
     color: #1DA1F2;
 }
 
+.twitter-button-mobile {
+    font-size: 1.5rem;
+    /* transition: color ease-in-out 200ms; */
+}
+
+.twitter-button-mobile:hover {
+    color: #1DA1F2;
+}
+
+.history-nav button {
+    background-color: rgb(109, 109, 109);
+    margin: 0.25rem 0;
+    padding-bottom: 1.8rem;
+    height: 2rem;
+}
+
+.history-nav button#prev {
+    color: rgba(36, 230, 36, 0.377);
+}
+
+.history-nav button#prev:hover {
+    color: rgba(36, 230, 36, 1);
+}
+
+.history-nav button#stop {
+    color: rgba(230, 36, 36, 0.274);
+}
+
+.history-nav button#stop:hover {
+    color: rgba(230, 36, 36, 1);
+}
+
+.history-nav button#play {
+    color: rgba(12, 67, 139, 0.384);
+}
+
+.history-nav button#play:hover {
+    color: rgba(12, 67, 139, 1);
+}
+
+.history-nav button#next {
+    color: rgba(36, 230, 36, 0.377);
+}
+
+.history-nav button#next:hover {
+    color: rgba(36, 230, 36, 1);
+}
+
 .fav-container {
     width: auto;
     max-width: 800px;
-    margin-top: 40px;
+    margin: 6rem auto;
     padding: 20px 30px;
     font-size: 1.1rem;
+    /* overflow-y: scroll; */
     /* border-radius: 10px;
     background-color: rgba(255, 255, 255, 0.4);
     box-shadow: 0 5px 10px 10px rgba(0, 0, 0, 0.2); */
@@ -104,6 +153,7 @@ button:active {
 
 .favs-list {
     padding: 0;
+    /* transition: xxx ease-in-out 300ms; */
 }
 
 .favs-list-item {
@@ -146,12 +196,36 @@ i.orange:nth-child(3) {
 }
 
 /* Tablet or smaller */
-@media screen and (max-width: 1000px) {
+@media screen and (max-width: 700px) {
     .quote-container {
-        margin: auto 10px;
+        margin: 2rem 1rem auto 1rem;
     }
 
     .quote-text {
         font-size: 2.5rem;
+    }
+
+    .button-container {
+        margin-top: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .twitter-button {
+        display: none;
+    }
+
+    .history-nav {
+        /* display: flex;
+        flex-direction: column; */
+    }
+
+    .history-nav button {
+        background-color: rgb(124, 124, 124);
+        margin: 1rem 0;
+        padding-bottom: 1.8rem;
+        height: 2rem;
     }
 }
