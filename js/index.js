@@ -1,3 +1,41 @@
+/**
+ * State
+ */
+
+/**
+ * Actions
+ */
+
+/**
+ * Mutations
+ */
+
+/**
+ * Store
+ */
+
+/**
+ * Pub/Sub
+ */
+
+/**
+ * Base Component
+ */
+
+/**
+ * UI Components
+ */
+
+/**
+ * Utils
+ */
+
+/**
+ * Init
+ */
+
+
+
 const MAX_ATTEMPTS = 10;
 const PRE_FAB_QUOTE = {
     quoteText: 'Look with favour upon a bold beginning.',
