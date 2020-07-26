@@ -14,18 +14,18 @@ body {
     font-weight: 700;
     text-align: center;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
 }
 
 .quote-container {
     width: auto;
-    max-width: 900px;
+    max-width: 800px;
     padding: 20px 30px;
     border-radius: 10px;
     background-color: rgba(255, 255, 255, 0.4);
     box-shadow: 0 5px 10px 10px rgba(0, 0, 0, 0.2);
-    transition: visibility ease-in 300ms;
 }
 
 .quote-text {
@@ -79,11 +79,70 @@ button:active {
 
 .twitter-button {
     font-size: 1.5rem;
-    transition: color ease-in-out 200ms;
+    /* transition: color ease-in-out 200ms; */
 }
 
 .twitter-button:hover {
     color: #1DA1F2;
+}
+
+.fav-container {
+    width: auto;
+    max-width: 800px;
+    margin-top: 40px;
+    padding: 20px 30px;
+    font-size: 1.1rem;
+    /* border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 5px 10px 10px rgba(0, 0, 0, 0.2); */
+}
+
+.fav-title {
+    margin-left: -35px;
+    color: grey;
+}
+
+.favs-list {
+    padding: 0;
+}
+
+.favs-list-item {
+    list-style: none;
+    padding-bottom: 1rem;
+}
+
+.favs-list-author {
+    margin: 0 2rem 0 0.5rem;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 0.9rem;
+    color: grey;
+}
+
+.save-button:hover {
+    color: orange;
+}
+
+.fa-times:hover {
+    color: darkred;
+}
+
+i.orange {
+    color: orange;
+}
+
+i.orange:nth-child(1) {
+    filter: brightness(135%);
+    transform: rotate(15deg) translate(-15px, 3px) scale(.6);
+}
+
+i.orange:nth-child(2) {
+    filter: brightness(115%);
+    transform: rotate(15deg) translate(-20px, -3px) scale(.75);
+}
+
+i.orange:nth-child(3) {
+    transform: rotate(15deg) translate(-20px, -8px);
 }
 
 /* Tablet or smaller */

@@ -32,7 +32,7 @@ const proxyGetQuote = async (_, n = 1) => {
     let data = await getQuote();
 
     if (!data) {
-        const delay = 500 + (n * 50);
+        const delay = 50;
 
         if (n < MAX_ATTEMPTS) {
             log(`Retrying API in ${delay}ms`);
@@ -103,4 +103,3 @@ const initShadowDOM = () => {
 const log = createLog();
 const manualMode = reactiveDOM(initShadowDOM());
 
-manualMode.exec();
