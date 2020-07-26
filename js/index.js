@@ -1,4 +1,4 @@
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 10;
 
 const createLog = () => {
     let n = 0;
