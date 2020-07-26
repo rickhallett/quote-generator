@@ -1,72 +1,117 @@
+const MAX_ATTEMPTS = 3;
 
 const createLog = () => {
-    let n = 1;
+    let n = 0;
     return (msg) => {
         if (msg instanceof Error) {
-            console.error(`${new Date().getDate()} log#: ${++n} => ${msg}`);
+            console.error(`${new Date().toISOString()}-LOG-#${++n} => ${msg}`);
+            return false;
         }
-        console.log(`${new Date().getDate()} log#:${++n} => ${msg}`);
+        console.log(`${new Date().toISOString()}-LOG-#${++n} => ${msg}`);
+        return true;
     }
 }
 
-const log = createLog();
+const proxyUrl = 'http://cors-anywhere.herokuapp.com/';
+const apiUrl = 'https://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en';
+const proxys = ['xxx', 'xxx', proxyUrl];
+const urls = ['xxx', 'xxx', apiUrl];
+
+const timeout = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = async (ms) => await Promise.all([timeout(ms / 2)], [timeout(ms / 2)]);
 
 const getQuote = async () => {
-    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-    const apiUrl = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en';
+    // const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+    // const apiUrl = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en';
 
     try {
-        const res = await fetch(proxyUrl + apiUrl);
+        const res = await fetch(proxys.shift() + urls.shift());
         return await res.json();
     } catch (err) {
-        log(err);
+        return log(err);
     }
-
-    return false;
 }
 
 const proxyGetQuote = async (_, n = 1) => {
 
     log(`Trying API: ${n}`);
-    const newQuote = await getQuote();
+    let data = await getQuote();
 
-    if (!newQuote) {
-        log(`Retrying API in ${n * 500}ms`);
-        setTimeout(() => {
-            if (n < 5) return proxyGetQuote(n++);
-            return false;
-        }, n * 500);
+    if (!data) {
+        const delay = 500 + (n * 50);
+
+        // NB: Caution when combining setTimeout and async/await..!!!
+        // setTimeout(() => {
+        //     if (n < MAX_ATTEMPTS) {
+        //         log(`Retrying API in ${delay}ms`);
+        //         proxyGetQuote(null, ++n);
+        //     }
+        //     data = null;
+        // }, delay);
+
+        if (n < MAX_ATTEMPTS) {
+
+            log(`Retrying API in ${delay}ms`);
+            sleep(delay);
+            
+            await proxyGetQuote(null, ++n);
+        }
+
+        
     }
 
-    return newQuote;
+    return { data, n };
 }
 
 const reactiveDOM = (shadowDOM) => {
-    let newQuote = null;
+    let data = null;
+    let n = 0;
 
-    const updateUI = (nq) => {
+    const updateUI = async (nq) => {
         try {
-            nq.authorText = newQuote.authorText;
-            nq.quoteText = newQuote.quoteText;
+            shadowDOM.authorText.innerHTML = nq.quoteAuthor;
+            shadowDOM.quoteText.innerHTML = nq.quoteText;
         } catch (err) {
             log(err);
-            return false;
+            return { success: false, error: err };
         }
 
-        return true;
+        return { success: true, error: null };
     }
 
-    shadowDOM.getQuoteBtn.addEventListener('click', async () => {
-        debugger;
-        newQuote = await proxyGetQuote();
+    const tryGetQuote = async (_, missingDataTryCount = 1) => {
 
-        if (newQuote) {
-            updateUI(newQuote)
+        debugger;
+
+        let { data, n } = await proxyGetQuote(null, missingDataTryCount);
+
+        console.log('data:', data)
+        console.log('n', n)
+
+        if (!data && n >= MAX_ATTEMPTS) {
+            throw new Error(`Unable to retrieve quote from API after ${n} attempt${n == 1 ? '' : 's'}`);
         }
-    });
+
+        if (data && n < MAX_ATTEMPTS) {
+            const { success, error } = await updateUI(data);
+
+            if (!success) {
+                log(`API response had missing data (${error}). Trying again.`);
+                if (n < MAX_ATTEMPTS) {
+                    await tryGetQuote(null, ++missingDataTryCount)
+                }
+                
+                throw Error(`Unable to update UI successfully from API: ${error}`);
+            }
+
+            return log(`UI updated successfully after ${n} attempt${n == 1 ? '' : 's'}`);
+        }        
+    }
+
+    shadowDOM.getQuoteBtn.addEventListener('click', tryGetQuote.bind(null));
 
     return {
-        exec: updateUI
+        exec: tryGetQuote.bind(null)
     }
 }
 
@@ -78,4 +123,7 @@ const initShadowDOM = () => {
     }
 }
 
+const log = createLog();
 const manualMode = reactiveDOM(initShadowDOM());
+
+manualMode.exec();
