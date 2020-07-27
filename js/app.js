@@ -2,7 +2,7 @@
  * Constants
  */
 
-const MAX_ATTEMPTS = 10;
+const MAX_ATTEMPTS = 50;
 const PRE_FAB_QUOTE = {
     quoteText: 'Look with favour upon a bold beginning.',
     quoteAuthor: 'Virgil'
@@ -191,7 +191,12 @@ const actions = {
             }
         };
 
-        const data = await failLimiter(attempts);
+        let data = await failLimiter(attempts);
+
+        while(data.quoteText === context.state.getLast().quoteText) {
+            log('Duplicate quote. Retrying.', 'red');
+            data = await failLimiter(attempts);
+        }
 
         if (data && attempts <= MAX_ATTEMPTS) {
             log(`Retrieved quote from API after ${attempts} attempt${attempts == 1 ? '' : 's'}`, 'green');
