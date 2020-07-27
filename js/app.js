@@ -12,8 +12,11 @@ const ACTION = 'action';
 const MUTATION = 'mutation';
 const RESTING = 'resting';
 
-const $evt = {
-    STATE_CHANGE: 'stateChange',
+const $eventKey = {
+    STATE_CHANGE: 'stateChange'
+}
+
+const $actionKey = {
     GET_QUOTE: 'getQuote',
     SAVE_QUOTE: 'saveQuote',
     PREV: 'previous',
@@ -24,7 +27,7 @@ const $evt = {
     FORGET: 'forget',
 };
 
-const $ = (context, element) => (context || document).querySelector(element);
+const $ = (element) => document.querySelector(element);
 
 
 /**
@@ -38,6 +41,8 @@ const $ = (context, element) => (context || document).querySelector(element);
 
 class State {
     constructor() {
+        this.history = [];
+        this.savedQuotes = [];
         this.loadHistory();
         this.loadSavedQuotes();
         this.pointToEnd();
@@ -47,11 +52,11 @@ class State {
         this.history.push({
             date: Date.now(),
             quoteText: nq.quoteText,
-            quoteAuthor: nq.quoteAuthor
+            quoteAuthor: nq.quoteAuthor || 'Anon'
         });
 
-        this.saveHistory();
-        this.pointToEnd();
+        // this.saveHistory();
+        // this.pointToEnd();
     }
 
     createFavourite() {
@@ -141,64 +146,41 @@ class State {
 
 const actions = {
 
-    getQuote: function(context, payload) {
-        let { data, n } = await quoteLimiter(null, missingDataTryCount);
+    getQuote: async function(context, payload) {
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        const apiUrl = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en';
+        let attempts = 1;
 
-        if (data && n <= MAX_ATTEMPTS) {
-            cache.createLog(data);
-            trackerHandler();
-            return log(`UI updated successfully after ${n} attempt${n == 1 ? '' : 's'}`);
+        const failLimiter = async (attempts) =>{
+            try {
+                const response = await fetch(proxyUrl + apiUrl);
+                return await response.json();
+            } catch (err) {
+                log(err);
+                if (attempts < MAX_ATTEMPTS) {
+                    utils.sleep(100);
+                    log(`Retrying API: attempt ${++attempts}`)
+                    return failLimiter(attempts);
+                }
+            }
+        };
+
+        const data = await failLimiter(attempts);
+
+        if (data && attempts <= MAX_ATTEMPTS) {
+            context.commit('persistQuote', data);
+            context.commit('saveHistory');
+            context.commit('pointToEnd');
         }
 
-        if (!data && n >= MAX_ATTEMPTS) {
+        if (!data && attempts >= MAX_ATTEMPTS) {
             throw new Error(`Unable to retrieve quote from API after ${n} attempt${n == 1 ? '' : 's'}`);
         }
+
     },
 
     example: function(context, payload) {
         context.commit('mutationKeyName', payload);
-    },
-
-    getForismaticQuote: function() {
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-        const apiUrl = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en';
-
-        try {
-            const res = await fetch(proxyUrl + apiUrl);
-            return await res.json();
-        } catch (err) {
-            return log(err);
-        }
-    },
-
-
-    quoteLimiter: async function (_, n = 1) {
-        log(`Trying API: ${n}`);
-        let data = await this.getForismaticQuote();
-    
-        if (!data) {
-            const delay = 50;
-    
-            if (n < MAX_ATTEMPTS) {
-                log(`Retrying API in ${delay}ms`);
-                sleep(delay);
-                return await quoteLimiter(null, ++n);
-            }
-        }
-    
-        return { data, n };
-    },
-
-    updateUI: async function(nq) {
-        try {
-            shadowDOM.authorText.innerHTML = nq.quoteAuthor;
-            shadowDOM.quoteText.innerHTML = nq.quoteText;
-        } catch (err) {
-            log(err);
-            return { success: false, error: err };
-        }
-
-        return { success: true, error: null };
     },
 
 
@@ -210,9 +192,18 @@ const actions = {
 
 const mutations = {
 
-    example: function(state, payload) {
-        state.history.push('yolo');
+    persistQuote: function(state, payload) {
+        state.createLog(payload);
+        return state;
+    },
 
+    saveHistory: function(state) {
+        state.saveHistory();
+        return state;
+    },
+
+    pointToEnd: function(state) {
+        state.pointToEnd();
         return state;
     }
 
@@ -228,7 +219,7 @@ class EventManager {
     }
 
     subscribe(event, callback) {
-        if(!this.events[event].hasOwnProperty(event)) {
+        if(!this.events.hasOwnProperty(event)) {
             this.events[event] = [];
         }
 
@@ -236,7 +227,7 @@ class EventManager {
     }
 
     publish(event, data = {}) {
-        if(!this.events[event].hasOwnProperty(event)) {
+        if(!this.events.hasOwnProperty(event)) {
             throw new Error(`EventManager does not have ${event} subscribed`);
         }
 
@@ -252,7 +243,7 @@ class StoreFactory {
     constructor(params) {
         const self = this;
 
-        self.status = null;
+        self.status = RESTING;
         self.actions = params.actions;
         self.mutations = params.mutations;
         self.events = params.events;
@@ -261,9 +252,9 @@ class StoreFactory {
             set: function(state, key, value) {
                 state[key] = value;
 
-                console.log(`stateChange = { ${key}: ${value} }`);
+                console.log(`${$eventKey.STATE_CHANGE}: ${key}:`, value);
                 
-                self.events.publish('stateChange');
+                self.events.publish($eventKey.STATE_CHANGE);
 
                 if (self.status !== MUTATION) {
                     console.warn(`You should use a mutation to set ${key}`);
@@ -301,7 +292,7 @@ class StoreFactory {
 
         this.status = MUTATION;
 
-        console.groupCollapsed(`MUTATION: ${actionKey}`);
+        console.groupCollapsed(`MUTATION: ${mutationKey}`);
 
         const newState = this.mutations[mutationKey](this.state, payload);
 
@@ -313,15 +304,6 @@ class StoreFactory {
     }
 }
 
-const store = new StoreFactory({
-    actions,
-    mutations,
-    state: new State(),
-    events: new EventManager()
-});
-
-
-
 /**
  * Base Component
  */
@@ -330,8 +312,8 @@ class Component {
     constructor(props) {
         this.render = this.render || function noop() {};
 
-        if (props.store instanceof Store) {
-            props.store.subscribe($evt.STATE_CHANGE, () => this.render());
+        if (props.store instanceof StoreFactory) {
+            props.store.events.subscribe($eventKey.STATE_CHANGE, () => this.render());
         }
 
         if (props.hasOwnProperty('element')) {
@@ -348,7 +330,7 @@ class Component {
  * UI Components
 */
 
-class CurrentQuote {
+class CurrentQuote extends Component {
     constructor(store) {
         super({
             store: store,
@@ -361,29 +343,29 @@ class CurrentQuote {
 
     render() {
         const activeQuote = store.state.get();
-        elements.authorText.innerHTML = activeQuote.quoteAuthor;
-        elements.quoteText.innerHTML = activeQuote.quoteText;
+        this.elements.authorText.innerHTML = activeQuote.quoteAuthor;
+        this.elements.quoteText.innerHTML = activeQuote.quoteText;
     }
 }
 
-class QuoteTracker {
+class QuoteTracker extends Component {
     constructor(store) {
         super({
             store: store,
             elements: {
-                nominator: $('nominator'),
-                denominator: $('denominator')
+                nominator: $('#nominator'),
+                denominator: $('#denominator')
             }
         })
     }
 
     render() {
-        elements.nominator.innerHTML = store.state.getPointer() + 1;
-        elements.denominator.innerHTML = store.state.getLength();
+        this.elements.nominator.innerText = store.state.getPointer() + 1;
+        this.elements.denominator.innerText = store.state.getLength();
     }
 }
 
-class SavedQuotes {
+class SavedQuotesList extends Component {
     constructor(store) {
         super({
             store: store,
@@ -394,17 +376,24 @@ class SavedQuotes {
     }
 
     render() {
-        const createItemHtml = (q) => {
-            let str = `<li class="favs-list-item">`;
-            str += `${q.quoteText}`;
-            str += `<span class="favs-list-author">${q.quoteAuthor}</span>`;
-            str += `<i class="fas fa-times"></i>`;
-            str += `</li>`;
+        // const createItemHtml = (q) => {
+        //     let str = `<li class="favs-list-item">`;
+        //     str += `${q.quoteText}`;
+        //     str += `<span class="favs-list-author">${q.quoteAuthor}</span>`;
+        //     str += `<i class="fas fa-times"></i>`;
+        //     str += `</li>`;
     
-            return str;
-        }
+        //     return str;
+        // }
     
-        elements.favsList.innerHTML = store.state.savedQuotes.map(quote => createItemHtml(quote)).join('');
+        // this.elements.favsList.innerHTML = store.state.savedQuotes.map(quote => createItemHtml(quote)).join('');
+
+        this.elements.favsList.innerHTML = store.state.savedQuotes.map(quote => {
+            return `<li class="favs-list-item">${q.quoteText}
+                        <span class="favs-list-author">${q.quoteAuthor}</span>
+                        <i class="fas fa-times"></i>
+                    </li>`
+        }).join('');
     }
 }
 
@@ -435,23 +424,22 @@ const utils = {
     }, 
 
     domRef: function() {
-        const $ = document.getElementById;
         return {
-            quoteText: $('quote'),
-            authorText: $('author'),
-            getQuoteBtn: $('new-quote'),
-            favContainer: $('fav-container'),
-            favTitleBox: $('fav-title-text'),
-            favsList: $('favs-list'),
-            saveBtn: $('save-quote'),
-            prevBtn: $('prev'),
-            stopBtn: $('stop'),
-            playBtn: $('play'),
-            nextBtn: $('next'),
-            twitterTab: $('twitter-tablet'),
-            twitterMob: $('twitter-mobile'),
-            nominator: $('nominator'),
-            denominator: $('denominator')
+            quoteText: $('#quote'),
+            authorText: $('#author'),
+            getQuoteBtn: $('#new-quote'),
+            favContainer: $('#fav-container'),
+            favTitleBox: $('#fav-title-text'),
+            favsList: $('#favs-list'),
+            saveBtn: $('#save-quote'),
+            prevBtn: $('#prev'),
+            stopBtn: $('#stop'),
+            playBtn: $('#play'),
+            nextBtn: $('#next'),
+            twitterTab: $('#twitter-tablet'),
+            twitterMob: $('#twitter-mobile'),
+            nominator: $('#nominator'),
+            denominator: $('#denominator')
         }
     }
 
@@ -461,85 +449,96 @@ const utils = {
  * Init
  */
 
-store.state.subscribe($evt.GET_QUOTE, (data) => {
+// store.events.subscribe($actionKey.GET_QUOTE, (data) => {
 
-});
+// });
 
-store.state.subscribe($evt.SAVE_QUOTE, (data) => {
+// store.events.subscribe($actionKey.SAVE_QUOTE, (data) => {
 
-});
+// });
 
-store.state.subscribe($evt.PREV, (data) => {
+// store.events.subscribe($actionKey.PREV, (data) => {
 
-});
+// });
 
-store.state.subscribe($evt.STOP, (data) => {
+// store.events.subscribe($actionKey.STOP, (data) => {
 
-});
+// });
 
-store.state.subscribe($evt.PLAY, (data) => {
+// store.events.subscribe($actionKey.PLAY, (data) => {
 
-});
+// });
 
-store.state.subscribe($evt.NEXT, (data) => {
+// store.events.subscribe($actionKey.NEXT, (data) => {
 
-});
+// });
 
-store.state.subscribe($evt.TWEET, (data) => {
+// store.events.subscribe($actionKey.TWEET, (data) => {
 
-});
+// });
 
-store.state.subscribe($evt.FORGET, (data) => {
+// store.events.subscribe($actionKey.FORGET, (data) => {
 
-});
+// });
 
 
 
 const dom = utils.domRef();
 const log = utils.createLog();
 
-dom.getQuoteBtn.addEventListener('click', store.dispatch($evt.GET_QUOTE));
+const store = new StoreFactory({
+    actions,
+    mutations,
+    state: new State(),
+    events: new EventManager()
+});
 
-dom.prevBtn.addEventListener('click', prevHandler);
-dom.stopBtn.addEventListener('click', clearInterval(playInterval));
-dom.playBtn.addEventListener('click', () => playInterval = setInterval(nextHandler, 4500));
-dom.nextBtn.addEventListener('click', nextHandler);
-dom.saveBtn.addEventListener('click', saveHander);
-dom.twitterTab.addEventListener('click', twitterHandler);
-dom.twitterMob.addEventListener('click', twitterHandler);
+const currentQuote = new CurrentQuote(store);
+const quoteTracker = new QuoteTracker(store);
+const savedQuotes = new SavedQuotesList(store);
 
-let playInterval = null;
+dom.getQuoteBtn.addEventListener('click', () => store.dispatch($actionKey.GET_QUOTE));
 
-const trackerHandler = () => {
-    dom.nominator.innerHTML = cache.getPointer() + 1;
-    dom.denominator.innerHTML = cache.getLength();
-};
+// dom.prevBtn.addEventListener('click', prevHandler);
+// dom.stopBtn.addEventListener('click', clearInterval(playInterval));
+// dom.playBtn.addEventListener('click', () => playInterval = setInterval(nextHandler, 4500));
+// dom.nextBtn.addEventListener('click', nextHandler);
+// dom.saveBtn.addEventListener('click', saveHander);
+// dom.twitterTab.addEventListener('click', twitterHandler);
+// dom.twitterMob.addEventListener('click', twitterHandler);
 
-trackerHandler();
+// let playInterval = null;
 
-const prevHandler = () => {
-    const prevQuote = cache.prev().get();
-    dom.quoteText.innerHTML = prevQuote.quoteText;
-    dom.authorText.innerHTML = prevQuote.quoteAuthor;
-    trackerHandler();
-};
+// const trackerHandler = () => {
+//     dom.nominator.innerHTML = cache.getPointer() + 1;
+//     dom.denominator.innerHTML = cache.getLength();
+// };
 
-const nextHandler = () => {
-    if (cache.isAtEnd()) {
-        clearInterval(playInterval);
-        playInterval = null;
-        return;
-    }
+// trackerHandler();
 
-    const nextQuote = cache.next().get();
-    dom.quoteText.innerHTML = nextQuote.quoteText;
-    dom.authorText.innerHTML = nextQuote.quoteAuthor;
-    trackerHandler();
-};
+// const prevHandler = () => {
+//     const prevQuote = cache.prev().get();
+//     dom.quoteText.innerHTML = prevQuote.quoteText;
+//     dom.authorText.innerHTML = prevQuote.quoteAuthor;
+//     trackerHandler();
+// };
 
-const saveHander = () => {
+// const nextHandler = () => {
+//     if (cache.isAtEnd()) {
+//         clearInterval(playInterval);
+//         playInterval = null;
+//         return;
+//     }
 
-    cache.createFavourite();
-    savedQuotePrintHandler();
-};
+//     const nextQuote = cache.next().get();
+//     dom.quoteText.innerHTML = nextQuote.quoteText;
+//     dom.authorText.innerHTML = nextQuote.quoteAuthor;
+//     trackerHandler();
+// };
+
+// const saveHander = () => {
+
+//     cache.createFavourite();
+//     savedQuotePrintHandler();
+// };
 
