@@ -18,6 +18,7 @@ const $eventKey = {
 
 const $actionKey = {
     GET_QUOTE: 'getQuote',
+    UPDATE_CURRENT_QUOTE: 'updateCurrentQuote',
     SAVE_QUOTE: 'saveQuote',
     PREV: 'previous',
     STOP: 'stop',
@@ -168,15 +169,20 @@ const actions = {
         const data = await failLimiter(attempts);
 
         if (data && attempts <= MAX_ATTEMPTS) {
-            context.commit('persistQuote', data);
-            context.commit('saveHistory');
-            context.commit('pointToEnd');
+            log(`Retrieved quote from API after ${attempts} attempt${attempts == 1 ? '' : 's'}`, 'green');
+            context.events.publish($actionKey.UPDATE_CURRENT_QUOTE, data);
         }
 
         if (!data && attempts >= MAX_ATTEMPTS) {
-            throw new Error(`Unable to retrieve quote from API after ${n} attempt${n == 1 ? '' : 's'}`);
+            throw new Error(`Unable to retrieve quote from API after ${attempts} attempt${attempts == 1 ? '' : 's'}`);
         }
 
+    },
+
+    updateCurrentQuote: function(context, data) {
+        context.commit('persistQuote', data);
+        context.commit('saveHistory');
+        context.commit('pointToEnd');
     },
 
     example: function(context, payload) {
@@ -376,18 +382,6 @@ class SavedQuotesList extends Component {
     }
 
     render() {
-        // const createItemHtml = (q) => {
-        //     let str = `<li class="favs-list-item">`;
-        //     str += `${q.quoteText}`;
-        //     str += `<span class="favs-list-author">${q.quoteAuthor}</span>`;
-        //     str += `<i class="fas fa-times"></i>`;
-        //     str += `</li>`;
-    
-        //     return str;
-        // }
-    
-        // this.elements.favsList.innerHTML = store.state.savedQuotes.map(quote => createItemHtml(quote)).join('');
-
         this.elements.favsList.innerHTML = store.state.savedQuotes.map(q => {
             return `<li class="favs-list-item">${q.quoteText}
                         <span class="favs-list-author">${q.quoteAuthor}</span>
@@ -405,12 +399,12 @@ const utils = {
 
     createLog: function() {
         let n = 0;
-        return (msg) => {
+        return (msg, color = null) => {
             if (msg instanceof Error) {
                 console.error(`${new Date().toISOString()}-LOG-#${++n} => ${msg}`);
                 return false;
             }
-            console.log(`${new Date().toISOString()}-LOG-#${++n} => ${msg}`);
+            console.log(`%c${new Date().toISOString()}-LOG-#${++n} => ${msg}`, `${color ? 'color:' + color : ''}`);
             return true;
         }
     },
@@ -423,7 +417,7 @@ const utils = {
         return await Promise.all([this.timeout(ms / 2)], [this.timeout(ms / 2)]);
     }, 
 
-    domRef: function() {
+    fetchDomRefences: function() {
         return {
             quoteText: $('#quote'),
             authorText: $('#author'),
@@ -449,41 +443,7 @@ const utils = {
  * Init
  */
 
-// store.events.subscribe($actionKey.GET_QUOTE, (data) => {
-
-// });
-
-// store.events.subscribe($actionKey.SAVE_QUOTE, (data) => {
-
-// });
-
-// store.events.subscribe($actionKey.PREV, (data) => {
-
-// });
-
-// store.events.subscribe($actionKey.STOP, (data) => {
-
-// });
-
-// store.events.subscribe($actionKey.PLAY, (data) => {
-
-// });
-
-// store.events.subscribe($actionKey.NEXT, (data) => {
-
-// });
-
-// store.events.subscribe($actionKey.TWEET, (data) => {
-
-// });
-
-// store.events.subscribe($actionKey.FORGET, (data) => {
-
-// });
-
-
-
-const dom = utils.domRef();
+const dom = utils.fetchDomRefences();
 const log = utils.createLog();
 
 const store = new StoreFactory({
@@ -491,6 +451,10 @@ const store = new StoreFactory({
     mutations,
     state: new State(),
     events: new EventManager()
+});
+
+store.events.subscribe($actionKey.UPDATE_CURRENT_QUOTE, (data) => {
+    store.dispatch($actionKey.UPDATE_CURRENT_QUOTE, data);
 });
 
 const currentQuote = new CurrentQuote(store);
