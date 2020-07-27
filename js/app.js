@@ -388,7 +388,7 @@ class SavedQuotesList extends Component {
     
         // this.elements.favsList.innerHTML = store.state.savedQuotes.map(quote => createItemHtml(quote)).join('');
 
-        this.elements.favsList.innerHTML = store.state.savedQuotes.map(quote => {
+        this.elements.favsList.innerHTML = store.state.savedQuotes.map(q => {
             return `<li class="favs-list-item">${q.quoteText}
                         <span class="favs-list-author">${q.quoteAuthor}</span>
                         <i class="fas fa-times"></i>
