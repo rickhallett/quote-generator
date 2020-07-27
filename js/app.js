@@ -209,7 +209,6 @@ const actions = {
 const mutations = {
 
     persistQuote: function(state, payload) {
-        debugger;
         state.createLog(payload);
         return state;
     },
