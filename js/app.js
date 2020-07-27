@@ -17,6 +17,7 @@ const $eventKey = {
 }
 
 const $actionKey = {
+    INIT: 'init',
     GET_QUOTE: 'getQuote',
     UPDATE_CURRENT_QUOTE: 'updateCurrentQuote',
     SAVE_QUOTE: 'saveQuote',
@@ -55,9 +56,6 @@ class State {
             quoteText: nq.quoteText,
             quoteAuthor: nq.quoteAuthor || 'Anon'
         });
-
-        // this.saveHistory();
-        // this.pointToEnd();
     }
 
     createFavourite() {
@@ -146,6 +144,10 @@ class State {
  */
 
 const actions = {
+
+    init: function(context, payload) {
+
+    },
 
     getQuote: async function(context, payload) {
         const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
@@ -345,6 +347,8 @@ class CurrentQuote extends Component {
                 authorText: $('#author'),
             } 
         });
+
+        this.render();
     }
 
     render() {
@@ -362,7 +366,9 @@ class QuoteTracker extends Component {
                 nominator: $('#nominator'),
                 denominator: $('#denominator')
             }
-        })
+        });
+
+        this.render();
     }
 
     render() {
@@ -378,7 +384,9 @@ class SavedQuotesList extends Component {
             elements: {
                 favsList: $('#favs-list')
             }
-        })
+        });
+
+        this.render();
     }
 
     render() {
@@ -455,6 +463,10 @@ const store = new StoreFactory({
 
 store.events.subscribe($actionKey.UPDATE_CURRENT_QUOTE, (data) => {
     store.dispatch($actionKey.UPDATE_CURRENT_QUOTE, data);
+});
+
+store.events.subscribe($actionKey.INIT, (data) => {
+    store.dispatch($actionKey.INIT, data);
 });
 
 const currentQuote = new CurrentQuote(store);

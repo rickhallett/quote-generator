@@ -99,6 +99,10 @@ button:active {
     color: #1DA1F2;
 }
 
+.twitter-button-mobile {
+    display: none;
+}
+
 .history-nav {
     margin: 0 1rem;
 }
