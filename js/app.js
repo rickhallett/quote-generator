@@ -15,6 +15,8 @@ const RESTING = 'resting';
 const $eventKey = {
     STATE_CHANGE: 'stateChange',
     LOADING_QUOTE: 'loadingQuote',
+    PREV_QUOTE: 'prevQuote',
+    NEXT_QUOTE: 'nextQuote',
 }
 
 const $actionKey = {
@@ -23,6 +25,8 @@ const $actionKey = {
     UPDATE_CURRENT_QUOTE: 'updateCurrentQuote',
     LOADING_QUOTE: 'loadingQuote',
     SAVE_QUOTE: 'saveQuote',
+    PREV_QUOTE: 'prevQuote',
+    NEXT_QUOTE: 'nextQuote',
     PREV: 'previous',
     STOP: 'stop',
     PLAY: 'play',
@@ -34,6 +38,8 @@ const $actionKey = {
 const $mutationKey = {
     LOADING_QUOTE: 'loadingQuote',
     SAVE_QUOTE: 'saveQuote',
+    PREV_QUOTE: 'prevQuote',
+    NEXT_QUOTE: 'nextQuote',
 }
 
 const $ = (element) => document.querySelector(element);
@@ -225,7 +231,13 @@ const actions = {
         context.commit($mutationKey.SAVE_QUOTE, payload);
     },
 
+    prevQuote: function(context, payload) {
+        context.commit($mutationKey.PREV_QUOTE, payload);
+    },
 
+    nextQuote: function(context, payload) {
+        context.commit($mutationKey.NEXT_QUOTE, payload);
+    }
 }
 
 /**
@@ -256,6 +268,16 @@ const mutations = {
         state.createFavourite();
         return state;
     },
+
+    prevQuote: function(state, payload) {
+        state.prev();
+        return state;
+    },
+
+    nextQuote: function(state, payload) {
+        state.next();
+        return state;
+    }
 }
 
 /**
@@ -510,15 +532,59 @@ const savedQuotes = new SavedQuotesList(store);
 dom.getQuoteBtn.addEventListener('click', () => store.dispatch($actionKey.GET_QUOTE));
 dom.saveBtn.addEventListener('click', () => store.dispatch($actionKey.SAVE_QUOTE));
 
-console.timeEnd('bootTime');
+const prevHandler = () => {
+    store.dispatch($actionKey.PREV_QUOTE)
+};
 
-// dom.prevBtn.addEventListener('click', prevHandler);
-// dom.stopBtn.addEventListener('click', clearInterval(playInterval));
-// dom.playBtn.addEventListener('click', () => playInterval = setInterval(nextHandler, 4500));
-// dom.nextBtn.addEventListener('click', nextHandler);
+let playInterval = null;
+let timeInterval = null;
+
+const stopHandler = () => {
+    clearInterval(playInterval);
+    clearInterval(timeInterval);
+
+    timeRemaining.innerText = 4.5;
+}
+
+const playHandler = () => {
+    let timeRemaining = $('#ms');
+
+    playInterval = setInterval(() => {
+        nextHandler();
+    }, 4500);
+
+    timeInterval = setInterval(() => {
+        if(timeRemaining.innerText > 0) {
+            timeRemaining.innerText = (timeRemaining.innerText - 0.1).toFixed(1);
+            return;
+        }
+
+        timeRemaining.innerText = 4.5;
+        
+    }, 100);
+}
+
+const nextHandler = () => {
+    if (store.state.isAtEnd()) {
+        clearInterval(playInterval);
+        playInterval = null;
+        return;
+    }
+
+    store.dispatch($actionKey.NEXT_QUOTE);
+};
+
+
+
+dom.prevBtn.addEventListener('click', prevHandler);
+dom.stopBtn.addEventListener('click', stopHandler);
+dom.playBtn.addEventListener('click', playHandler);
+dom.nextBtn.addEventListener('click', nextHandler);
 // dom.saveBtn.addEventListener('click', saveHander);
 // dom.twitterTab.addEventListener('click', twitterHandler);
 // dom.twitterMob.addEventListener('click', twitterHandler);
+
+console.timeEnd('bootTime');
 
 // let playInterval = null;
 
@@ -528,26 +594,6 @@ console.timeEnd('bootTime');
 // };
 
 // trackerHandler();
-
-// const prevHandler = () => {
-//     const prevQuote = cache.prev().get();
-//     dom.quoteText.innerHTML = prevQuote.quoteText;
-//     dom.authorText.innerHTML = prevQuote.quoteAuthor;
-//     trackerHandler();
-// };
-
-// const nextHandler = () => {
-//     if (cache.isAtEnd()) {
-//         clearInterval(playInterval);
-//         playInterval = null;
-//         return;
-//     }
-
-//     const nextQuote = cache.next().get();
-//     dom.quoteText.innerHTML = nextQuote.quoteText;
-//     dom.authorText.innerHTML = nextQuote.quoteAuthor;
-//     trackerHandler();
-// };
 
 // const saveHander = () => {
 
