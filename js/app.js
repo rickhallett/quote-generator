@@ -13,13 +13,15 @@ const MUTATION = 'mutation';
 const RESTING = 'resting';
 
 const $eventKey = {
-    STATE_CHANGE: 'stateChange'
+    STATE_CHANGE: 'stateChange',
+    LOADING_QUOTE: 'loadingQuote',
 }
 
 const $actionKey = {
     INIT: 'init',
     GET_QUOTE: 'getQuote',
     UPDATE_CURRENT_QUOTE: 'updateCurrentQuote',
+    LOADING_QUOTE: 'loadingQuote',
     SAVE_QUOTE: 'saveQuote',
     PREV: 'previous',
     STOP: 'stop',
@@ -28,6 +30,10 @@ const $actionKey = {
     TWEET: 'tweet',
     FORGET: 'forget',
 };
+
+const $mutationKey = {
+    LOADING_QUOTE: 'loadingQuote'
+}
 
 const $ = (element) => document.querySelector(element);
 
@@ -56,6 +62,9 @@ class State {
             quoteText: nq.quoteText,
             quoteAuthor: nq.quoteAuthor || 'Anon'
         });
+
+        this.saveHistory();
+        this.pointToEnd();
     }
 
     createFavourite() {
@@ -155,12 +164,18 @@ const actions = {
         context.events.subscribe($actionKey.INIT, (data) => {
             context.dispatch($actionKey.INIT, data);
         });
+
+        context.events.subscribe($eventKey.LOADING_QUOTE, (data) => {
+            context.dispatch($actionKey.LOADING_QUOTE, data);
+        });
     },
 
     getQuote: async function(context, payload) {
         const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
         const apiUrl = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en';
         let attempts = 1;
+
+        context.events.publish($eventKey.LOADING_QUOTE, 'loading');
 
         const failLimiter = async (attempts) =>{
             try {
@@ -169,7 +184,7 @@ const actions = {
             } catch (err) {
                 log(err);
                 if (attempts < MAX_ATTEMPTS) {
-                    utils.sleep(100);
+                    utils.sleep(25);
                     log(`Retrying API: attempt ${++attempts}`)
                     return failLimiter(attempts);
                 }
@@ -187,12 +202,18 @@ const actions = {
             throw new Error(`Unable to retrieve quote from API after ${attempts} attempt${attempts == 1 ? '' : 's'}`);
         }
 
+        context.events.publish($eventKey.LOADING_QUOTE, null);
+
     },
 
     updateCurrentQuote: function(context, data) {
         context.commit('persistQuote', data);
-        context.commit('saveHistory');
-        context.commit('pointToEnd');
+        // context.commit('saveHistory');
+        // context.commit('pointToEnd');
+    },
+
+    loadingQuote: function(context, data) {
+        context.commit($mutationKey.LOADING_QUOTE, data);
     },
 
     example: function(context, payload) {
@@ -221,8 +242,11 @@ const mutations = {
     pointToEnd: function(state) {
         state.pointToEnd();
         return state;
-    }
+    },
 
+    loadingQuote: function(state, payload) {
+        $('#new-quote').innerText = payload === 'loading' ? 'Loading...' : 'New Quote';
+    }
 }
 
 /**
@@ -259,7 +283,6 @@ class StoreFactory {
     constructor(params) {
         const self = this;
 
-        self.status = RESTING;
         self.actions = params.actions;
         self.mutations = params.mutations;
         self.events = params.events;
@@ -269,22 +292,12 @@ class StoreFactory {
         self.state = new Proxy((params.state || {}), {
             set: function(state, key, value) {
 
-                if (utils.deepEqual(self.previousStateCache[key], state[key])) {
-                    return true;
-                }
-
                 state[key] = value;
                 self.previousStateCache[key] = value;
 
                 console.log(`${$eventKey.STATE_CHANGE}: ${key}:`, value);
                 
                 self.events.publish($eventKey.STATE_CHANGE);
-
-                if (self.status !== MUTATION) {
-                    console.warn(`You should use a mutation to set ${key}`);
-                }
-
-                self.status = RESTING;
 
                 return true;
             }
@@ -299,8 +312,6 @@ class StoreFactory {
 
         console.groupCollapsed(`ACTION: ${actionKey} ${Date.now()}`);
 
-        this.status = ACTION;
-
         this.actions[actionKey](this, payload);
 
         console.groupEnd();
@@ -313,8 +324,6 @@ class StoreFactory {
             console.warn(`${this.mutations[mutationKey]} is not a registered mutation`);
             return false;
         }
-
-        this.status = MUTATION;
 
         console.groupCollapsed(`MUTATION: ${mutationKey} ${Date.now()}`);
 
