@@ -209,6 +209,7 @@ const actions = {
 const mutations = {
 
     persistQuote: function(state, payload) {
+        debugger;
         state.createLog(payload);
         return state;
     },
@@ -264,9 +265,17 @@ class StoreFactory {
         self.mutations = params.mutations;
         self.events = params.events;
 
+        self.previousStateCache = {};
+
         self.state = new Proxy((params.state || {}), {
             set: function(state, key, value) {
+
+                if (utils.deepEqual(self.previousStateCache[key], state[key])) {
+                    return true;
+                }
+
                 state[key] = value;
+                self.previousStateCache[key] = value;
 
                 console.log(`${$eventKey.STATE_CHANGE}: ${key}:`, value);
                 
@@ -289,7 +298,7 @@ class StoreFactory {
             return false;
         }
 
-        console.groupCollapsed(`ACTION: ${actionKey}`);
+        console.groupCollapsed(`ACTION: ${actionKey} ${Date.now()}`);
 
         this.status = ACTION;
 
@@ -308,7 +317,7 @@ class StoreFactory {
 
         this.status = MUTATION;
 
-        console.groupCollapsed(`MUTATION: ${mutationKey}`);
+        console.groupCollapsed(`MUTATION: ${mutationKey} ${Date.now()}`);
 
         const newState = this.mutations[mutationKey](this.state, payload);
 
@@ -412,6 +421,10 @@ class SavedQuotesList extends Component {
  */
 
 const utils = {
+
+    deepEqual: function(obj1, obj2) {
+        return JSON.stringify(obj1) === JSON.stringify(obj2);
+    },
 
     createLog: function() {
         let n = 0;
