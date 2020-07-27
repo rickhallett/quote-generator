@@ -32,7 +32,8 @@ const $actionKey = {
 };
 
 const $mutationKey = {
-    LOADING_QUOTE: 'loadingQuote'
+    LOADING_QUOTE: 'loadingQuote',
+    SAVE_QUOTE: 'saveQuote',
 }
 
 const $ = (element) => document.querySelector(element);
@@ -153,7 +154,6 @@ class State {
  */
 
 const actions = {
-
     init: function(context, payload) {
         log('App initialising', 'lightblue');
 
@@ -221,8 +221,8 @@ const actions = {
         context.commit($mutationKey.LOADING_QUOTE, data);
     },
 
-    example: function(context, payload) {
-        context.commit('mutationKeyName', payload);
+    saveQuote: function(context, payload) {
+        context.commit($mutationKey.SAVE_QUOTE, payload);
     },
 
 
@@ -233,7 +233,6 @@ const actions = {
  */
 
 const mutations = {
-
     persistQuote: function(state, payload) {
         state.createLog(payload);
         return state;
@@ -251,7 +250,12 @@ const mutations = {
 
     loadingQuote: function(state, payload) {
         $('#new-quote').innerText = payload === 'loading' ? 'Loading...' : 'New Quote';
-    }
+    },
+
+    saveQuote: function(state, payload) {
+        state.createFavourite();
+        return state;
+    },
 }
 
 /**
@@ -504,6 +508,7 @@ const quoteTracker = new QuoteTracker(store);
 const savedQuotes = new SavedQuotesList(store);
 
 dom.getQuoteBtn.addEventListener('click', () => store.dispatch($actionKey.GET_QUOTE));
+dom.saveBtn.addEventListener('click', () => store.dispatch($actionKey.SAVE_QUOTE));
 
 console.timeEnd('bootTime');
 
