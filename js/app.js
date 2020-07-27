@@ -369,7 +369,7 @@ class CurrentQuote extends Component {
     }
 
     render() {
-        const activeQuote = store.state.get();
+        const activeQuote = store.state.get() || PRE_FAB_QUOTE;
         this.elements.authorText.innerHTML = activeQuote.quoteAuthor;
         this.elements.quoteText.innerHTML = activeQuote.quoteText;
     }
