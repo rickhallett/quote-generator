@@ -146,7 +146,15 @@ class State {
 const actions = {
 
     init: function(context, payload) {
+        log('App initialising', 'lightblue');
 
+        context.events.subscribe($actionKey.UPDATE_CURRENT_QUOTE, (data) => {
+            context.dispatch($actionKey.UPDATE_CURRENT_QUOTE, data);
+        });
+        
+        context.events.subscribe($actionKey.INIT, (data) => {
+            context.dispatch($actionKey.INIT, data);
+        });
     },
 
     getQuote: async function(context, payload) {
@@ -451,6 +459,8 @@ const utils = {
  * Init
  */
 
+console.time('bootTime');
+
 const dom = utils.fetchDomRefences();
 const log = utils.createLog();
 
@@ -461,19 +471,15 @@ const store = new StoreFactory({
     events: new EventManager()
 });
 
-store.events.subscribe($actionKey.UPDATE_CURRENT_QUOTE, (data) => {
-    store.dispatch($actionKey.UPDATE_CURRENT_QUOTE, data);
-});
-
-store.events.subscribe($actionKey.INIT, (data) => {
-    store.dispatch($actionKey.INIT, data);
-});
+store.dispatch($actionKey.INIT);
 
 const currentQuote = new CurrentQuote(store);
 const quoteTracker = new QuoteTracker(store);
 const savedQuotes = new SavedQuotesList(store);
 
 dom.getQuoteBtn.addEventListener('click', () => store.dispatch($actionKey.GET_QUOTE));
+
+console.timeEnd('bootTime');
 
 // dom.prevBtn.addEventListener('click', prevHandler);
 // dom.stopBtn.addEventListener('click', clearInterval(playInterval));
