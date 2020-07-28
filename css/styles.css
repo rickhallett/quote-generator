@@ -22,11 +22,15 @@ body {
 .quote-container {
     /* min-width: 600px; */
     max-width: 800px;
+    min-height: 250px;
     margin-top: 2rem;
     padding: 20px 30px;
     border-radius: 10px;
     background-color: rgba(255, 255, 255, 0.4);
     box-shadow: 0 5px 10px 10px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .quote-text {
@@ -145,6 +149,10 @@ button:active {
 
 .history-nav button#next:hover {
     color: rgba(36, 230, 36, 1);
+}
+
+.hidden {
+    display: none;
 }
 
 .history-nav #ms {

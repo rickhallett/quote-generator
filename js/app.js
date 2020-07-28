@@ -33,6 +33,7 @@ const $actionKey = {
     NEXT: 'next',
     TWEET: 'tweet',
     FORGET: 'forget',
+    UPDATE_LOCAL_STORAGE: 'updateLocalStorage'
 };
 
 const $mutationKey = {
@@ -40,9 +41,11 @@ const $mutationKey = {
     SAVE_QUOTE: 'saveQuote',
     PREV_QUOTE: 'prevQuote',
     NEXT_QUOTE: 'nextQuote',
+    UPDATE_LOCAL_STORAGE: 'updateLocalStorage'
 }
 
 const $ = (element) => document.querySelector(element);
+const $all = (element) => document.querySelectorAll(element);
 
 
 /**
@@ -124,6 +127,10 @@ class State {
 
     isAtEnd() {
         return this.pointer >= this.history.length - 1;
+    }
+
+    isOneFromEnd() {
+        return this.pointer >= this.history.length - 2;
     }
 
     saveHistory() {
@@ -237,6 +244,10 @@ const actions = {
 
     nextQuote: function(context, payload) {
         context.commit($mutationKey.NEXT_QUOTE, payload);
+    },
+
+    updateLocalStorage: function(context, payload) {
+        context.commit($mutationKey.UPDATE_LOCAL_STORAGE);
     }
 }
 
@@ -277,6 +288,11 @@ const mutations = {
     nextQuote: function(state, payload) {
         state.next();
         return state;
+    },
+
+    updateLocalStorage: function(state, payload) {
+        state.saveHistory();
+        state.persistSavedQuotes();
     }
 }
 
@@ -445,14 +461,120 @@ class SavedQuotesList extends Component {
         this.render();
     }
 
+    delete(idx) {
+        store.state.savedQuotes = store.state.savedQuotes.filter((_, i) => i !== idx);
+        store.dispatch($actionKey.UPDATE_LOCAL_STORAGE);
+    }
+
     render() {
-        this.elements.favsList.innerHTML = store.state.savedQuotes.map(q => {
-            return `<li class="favs-list-item">${q.quoteText}
+        const self = this;
+        this.elements.favsList.innerHTML = store.state.savedQuotes.map((q, i) => {
+            return `<li class="favs-list-item" data-index="${i}">${q.quoteText}
                         <span class="favs-list-author">${q.quoteAuthor}</span>
                         <i class="fas fa-times"></i>
                     </li>`
         }).join('');
+
+        Array.from($all('[data-index]')).map((node, i) => {
+            node.addEventListener('click', self.delete.bind(self, i));
+        });
     }
+}
+
+class NavigationManager {
+    constructor(dom, store) {
+        this.playInterval = null;
+        this.timeInterval = null;
+        this.timeRemaining = $('#ms');
+        this.stopHandlerEnabled = true;
+        this.playHandlerEnabled = true;
+        this.store = store;
+        this.dom = dom;
+
+        this.dom.prevBtn.addEventListener('click', this.prevHandler.bind(this));
+        this.dom.stopBtn.addEventListener('click', this.stopHandler.bind(this));
+        this.dom.playBtn.addEventListener('click', this.playHandler.bind(this));
+        this.dom.nextBtn.addEventListener('click', this.nextHandler.bind(this));
+    }
+
+    prevHandler() {
+        this.store.dispatch($actionKey.PREV_QUOTE);
+    }
+
+    stopHandler() {
+        if (this.stopHandlerEnabled) {
+            this.stopTimer();
+    
+            this.timeRemaining.innerText = 4.5;
+    
+            this.ifShowingHideTimer();
+    
+            this.stopHandlerEnabled = false;
+            this.playHandlerEnabled = true;
+    
+            return;
+        }
+    
+        log('stopHandler disabled', 'red');
+    }
+
+    playHandler() {
+        if (this.playHandlerEnabled) {
+            this.ifHidingShowTimer();
+
+            this.playInterval = setInterval(() => {
+                this.nextHandler();
+            }, 4500);
+    
+            this.timeInterval = setInterval(() => {
+                if(this.timeRemaining.innerText > 0) {
+                    this.timeRemaining.innerText = (this.timeRemaining.innerText - 0.1).toFixed(1);
+                    return;
+                }
+    
+                this.timeRemaining.innerText = 4.5;
+            
+            }, 100);
+    
+            this.stopHandlerEnabled = true;
+            this.playHandlerEnabled = false;
+    
+            return;
+        }
+    
+        log('playHandler disabled', 'red');
+    }
+
+    nextHandler() {
+        if (this.store.state.isOneFromEnd()) {
+            this.stopTimer();
+            return;
+        }
+    
+        this.store.dispatch($actionKey.NEXT_QUOTE);
+    }
+
+    stopTimer() {
+        this.ifShowingHideTimer();
+
+        clearInterval(this.playInterval);
+        clearInterval(this.timeInterval);
+        this.playInterval = null;
+        this.timeInterval = null;
+    }
+
+    ifShowingHideTimer() {
+        if (Array.from(this.timeRemaining.classList).indexOf('hidden') === -1) {
+            this.timeRemaining.classList.add('hidden');
+        }
+    }
+
+    ifHidingShowTimer() {
+        if (Array.from(this.timeRemaining.classList).indexOf('hidden') !== -1) {
+            this.timeRemaining.classList.remove('hidden');
+        }
+    }
+
 }
 
 /**
@@ -528,76 +650,18 @@ store.dispatch($actionKey.INIT);
 const currentQuote = new CurrentQuote(store);
 const quoteTracker = new QuoteTracker(store);
 const savedQuotes = new SavedQuotesList(store);
+const navigationManager = new NavigationManager(dom, store);
 
 dom.getQuoteBtn.addEventListener('click', () => store.dispatch($actionKey.GET_QUOTE));
 dom.saveBtn.addEventListener('click', () => store.dispatch($actionKey.SAVE_QUOTE));
 
-const prevHandler = () => {
-    store.dispatch($actionKey.PREV_QUOTE)
-};
-
-let playInterval = null;
-let timeInterval = null;
-
-const stopHandler = () => {
-    clearInterval(playInterval);
-    clearInterval(timeInterval);
-
-    timeRemaining.innerText = 4.5;
-}
-
-const playHandler = () => {
-    let timeRemaining = $('#ms');
-
-    playInterval = setInterval(() => {
-        nextHandler();
-    }, 4500);
-
-    timeInterval = setInterval(() => {
-        if(timeRemaining.innerText > 0) {
-            timeRemaining.innerText = (timeRemaining.innerText - 0.1).toFixed(1);
-            return;
-        }
-
-        timeRemaining.innerText = 4.5;
-        
-    }, 100);
-}
-
-const nextHandler = () => {
-    if (store.state.isAtEnd()) {
-        clearInterval(playInterval);
-        playInterval = null;
-        return;
-    }
-
-    store.dispatch($actionKey.NEXT_QUOTE);
-};
-
-
-
-dom.prevBtn.addEventListener('click', prevHandler);
-dom.stopBtn.addEventListener('click', stopHandler);
-dom.playBtn.addEventListener('click', playHandler);
-dom.nextBtn.addEventListener('click', nextHandler);
-// dom.saveBtn.addEventListener('click', saveHander);
 // dom.twitterTab.addEventListener('click', twitterHandler);
 // dom.twitterMob.addEventListener('click', twitterHandler);
 
+
+
+
+
+
 console.timeEnd('bootTime');
-
-// let playInterval = null;
-
-// const trackerHandler = () => {
-//     dom.nominator.innerHTML = cache.getPointer() + 1;
-//     dom.denominator.innerHTML = cache.getLength();
-// };
-
-// trackerHandler();
-
-// const saveHander = () => {
-
-//     cache.createFavourite();
-//     savedQuotePrintHandler();
-// };
 
