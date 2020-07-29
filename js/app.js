@@ -425,8 +425,14 @@ class CurrentQuote extends Component {
 
     render() {
         const activeQuote = store.state.get() || PRE_FAB_QUOTE;
-        this.elements.authorText.innerHTML = activeQuote.quoteAuthor;
-        this.elements.quoteText.innerHTML = activeQuote.quoteText;
+        this.elements.authorText.innerText = activeQuote.quoteAuthor;
+        this.elements.quoteText.innerText = activeQuote.quoteText;
+
+        //debugger;
+
+        activeQuote.quoteText.length > 50 
+            ? this.elements.quoteText.classList.add('long-quote') 
+            : this.elements.quoteText.classList.remove('long-quote')
     }
 }
 
