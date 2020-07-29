@@ -248,6 +248,12 @@ const actions = {
 
     updateLocalStorage: function(context, payload) {
         context.commit($mutationKey.UPDATE_LOCAL_STORAGE);
+    },
+
+    tweetCurrentQuote: function(context, payload) {
+        const url = `https://twitter.com/intent/tweet?text=${payload.quoteText} ~ ${payload.quoteAuthor}`;
+
+        window.open(url, '_blank');
     }
 }
 
@@ -661,13 +667,10 @@ const navigationManager = new NavigationManager(dom, store);
 dom.getQuoteBtn.addEventListener('click', () => store.dispatch($actionKey.GET_QUOTE));
 dom.saveBtn.addEventListener('click', () => store.dispatch($actionKey.SAVE_QUOTE));
 
-// dom.twitterTab.addEventListener('click', twitterHandler);
-// dom.twitterMob.addEventListener('click', twitterHandler);
-
-
-
-
+dom.twitterTab.addEventListener('click', store.dispatch.bind(store, 'tweetCurrentQuote', store.state.get()));
+dom.twitterMob.addEventListener('click', store.dispatch.bind(store, 'tweetCurrentQuote', store.state.get()));
 
 
 console.timeEnd('bootTime');
+
 
