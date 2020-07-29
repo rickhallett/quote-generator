@@ -118,7 +118,7 @@ class State {
     }
 
     getLast() {
-        return this.history[this.history.length - 1] || null;
+        return this.history[this.history.length - 1] || PRE_FAB_QUOTE;
     }
 
     pointToEnd() {
