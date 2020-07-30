@@ -22,6 +22,7 @@ const $eventKey = {
 const $actionKey = {
     INIT: 'init',
     GET_QUOTE: 'getQuote',
+    GET_LIBRARY_QUOTE: 'getLibraryQuote',
     UPDATE_CURRENT_QUOTE: 'updateCurrentQuote',
     LOADING_QUOTE: 'loadingQuote',
     SAVE_QUOTE: 'saveQuote',
@@ -33,7 +34,8 @@ const $actionKey = {
     NEXT: 'next',
     TWEET: 'tweet',
     FORGET: 'forget',
-    UPDATE_LOCAL_STORAGE: 'updateLocalStorage'
+    UPDATE_LOCAL_STORAGE: 'updateLocalStorage',
+    SEARCH: 'search'
 };
 
 const $mutationKey = {
@@ -41,7 +43,8 @@ const $mutationKey = {
     SAVE_QUOTE: 'saveQuote',
     PREV_QUOTE: 'prevQuote',
     NEXT_QUOTE: 'nextQuote',
-    UPDATE_LOCAL_STORAGE: 'updateLocalStorage'
+    UPDATE_LOCAL_STORAGE: 'updateLocalStorage',
+    SEARCH: 'search'
 }
 
 const $ = (element) => document.querySelector(element);
@@ -58,15 +61,26 @@ const $all = (element) => document.querySelectorAll(element);
 // };
 
 class State {
-    constructor() {
+    constructor(quoteLibrary) {
+        this.quoteLibrary = quoteLibrary.map(q => {
+            return {
+                date: q.date,
+                quoteAuthor: q.quoteAuthor,
+                quoteText: q.quoteText.substring(0, q.quoteText.length - 1),
+            };
+        });
         this.history = [];
         this.savedQuotes = [];
         this.loadHistory();
         this.loadSavedQuotes();
         this.pointToEnd();
+
+        //this.quoteAlreadyExistsInCache();
     }
 
     createLog(nq) {
+        if (this.quoteAlreadyExistsInCache(nq)) return;
+
         this.history.push({
             date: Date.now(),
             quoteText: nq.quoteText,
@@ -75,6 +89,21 @@ class State {
 
         this.saveHistory();
         this.pointToEnd();
+
+        this.quoteAlreadyExistsInCache({ quoteText: 'Creativity requires the courage to let go of certainties. ', quoteAuthor: 'Erich Fromm'});
+    }
+
+    quoteAlreadyExistsInCache(quote) {
+        let exists = false;
+        this.history.forEach((q, idx) => {
+            if (q.quoteText === quote.quoteText) exists = true;
+        });
+
+        return exists;
+    }
+
+    convertCacheToJSON() {
+
     }
 
     createFavourite() {
@@ -224,6 +253,20 @@ const actions = {
 
     },
 
+    getLibraryQuote: async function(context, payload) {
+        context.events.publish($eventKey.LOADING_QUOTE, 'loading');
+
+        await utils.sleep(utils.getRandomInt(1000, 5000));
+        const newQuote = context.state.quoteLibrary[utils.getRandomInt(1, context.state.quoteLibrary.length - 1)];
+        context.events.publish($actionKey.UPDATE_CURRENT_QUOTE, newQuote);
+
+        context.events.publish($eventKey.LOADING_QUOTE, null);
+    },
+
+    // search(context, data) {
+
+    // },
+
     updateCurrentQuote: function(context, data) {
         context.commit('persistQuote', data);
         // context.commit('saveHistory');
@@ -279,6 +322,9 @@ const mutations = {
 
     loadingQuote: function(state, payload) {
         $('#new-quote').innerText = payload === 'loading' ? 'Loading...' : 'New Quote';
+        $('.loader').hidden = payload === 'loading' ? false : true;
+        $('.quote-text').hidden = payload === 'loading' ? true : false;
+        $('.quote-author').hidden = payload === 'loading' ? true : false;
     },
 
     saveQuote: function(state, payload) {
@@ -619,6 +665,10 @@ const utils = {
         return await Promise.all([this.timeout(ms / 2)], [this.timeout(ms / 2)]);
     }, 
 
+    getRandomInt: function(min, max) {
+        return Math.floor(Math.random() * (max - min) + min);
+    },
+
     fetchDomRefences: function() {
         return {
             quoteText: $('#quote'),
@@ -653,7 +703,7 @@ const log = utils.createLog();
 const store = new StoreFactory({
     actions,
     mutations,
-    state: new State(),
+    state: new State(quoteLibrary),
     events: new EventManager()
 });
 
@@ -664,7 +714,7 @@ const quoteTracker = new QuoteTracker(store);
 const savedQuotes = new SavedQuotesList(store);
 const navigationManager = new NavigationManager(dom, store);
 
-dom.getQuoteBtn.addEventListener('click', () => store.dispatch($actionKey.GET_QUOTE));
+dom.getQuoteBtn.addEventListener('click', () => store.dispatch($actionKey.GET_LIBRARY_QUOTE));
 dom.saveBtn.addEventListener('click', () => store.dispatch($actionKey.SAVE_QUOTE));
 
 dom.twitterTab.addEventListener('click', store.dispatch.bind(store, 'tweetCurrentQuote', store.state.get()));
@@ -673,4 +723,11 @@ dom.twitterMob.addEventListener('click', store.dispatch.bind(store, 'tweetCurren
 
 console.timeEnd('bootTime');
 
+// generate quoteLibrary data
+// let enough = setInterval(() => {
+//     if (store.state.history.length > 2000) {
+//         return clearInterval(enough);
+//     }
+//     store.dispatch($actionKey.GET_QUOTE);
+// }, 1000);
 

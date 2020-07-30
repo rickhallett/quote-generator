@@ -17,10 +17,12 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    transition: all 1s ease-in-out;
 }
 
 .quote-container {
     /* min-width: 600px; */
+    position: relative;
     max-width: 800px;
     min-height: 250px;
     margin-top: 2rem;
@@ -40,6 +42,30 @@ body {
 .long-quote {
     font-size: 2rem;
 }
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+.loader {
+    margin: auto;
+    height: 80px;
+    width: 80px;
+    border: solid 5px grey;
+    border-top: solid 5px rgba(61, 61, 121, 0.849);
+    border-bottom: solid 5px rgba(61, 61, 121, 0.849);
+    border-radius: 50%;
+    animation: 800ms linear infinite spin;
+    opacity: 0.8;
+}
+
 
 .fa-quote-left {
     font-size: 4rem;
